@@ -1,6 +1,7 @@
 package recongo
 
 import (
+  "errors"
   "fmt"
   r "gopkg.in/dancannon/gorethink.v2"
 )
@@ -31,3 +32,15 @@ func (c Client) DB() string {
   return c.db
 }
 
+// TableTest tests a table on client database
+func (c *Client) DBTest(name string) error {
+  if name == "" {
+    return errors.New("Type in db name")
+  }
+  dbs := c.DBList()
+  
+  if (!stringInSlice(name, dbs)) {
+    return errors.New("Incorrect db name")
+  }
+  return nil
+}

@@ -54,12 +54,22 @@ func (c *Client) Log(f string) {
   }
 }
 
-// Close db session
+// Set current table to use
 func (c *Client) Table(name string) *Client {
   if c.TableTest(name) != nil {
     c.table = ""
   } else {
     c.table = name
+  }
+  return c
+}
+
+// Set current db to use
+func (c *Client) SetDB(name string) *Client {
+  if c.DBTest(name) != nil {
+    panic("Incorrect db set")
+  } else {
+    c.db = name
   }
   return c
 }

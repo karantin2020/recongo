@@ -6,7 +6,7 @@ import (
   r "gopkg.in/dancannon/gorethink.v2"
 )
 
-// TablePresent creates a table on client databae if it doesn't exist already
+// TableTest tests a table on client database
 func (c *Client) TableTest(name string) error {
   if name == "" {
     return errors.New("Type in table name")

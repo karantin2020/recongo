@@ -30,9 +30,9 @@ func init() {
   session = s
   rebuildDB()
 
-  c, _ := re.NewClient(re.Connection{host, db})
-  client = c
-  c.TablePresent(table)
+  client, _ = re.NewClient(re.Connection{host, db})
+  // client = c
+  client.TablePresent(table)
 }
 
 func expect(t *testing.T, a interface{}, b interface{}) {
@@ -118,6 +118,15 @@ func Test_Find(t *testing.T) {
   fmt.Printf("%+v\n",ts[0])
 }
 
+func Test_FindRaw(t *testing.T) {
+  var ts []byte
+  err := client.Table(table).FindRaw("test", "create", &ts)
+  expect(t, err, nil)
+  // expect(t, len(ts), 2)
+  // expect(t, ts[0].Test, "create")
+  fmt.Println(string(ts))
+}
+
 func Test_Get(t *testing.T) {
   ts := struct{
     Test string `gorethink:"test"`
@@ -164,6 +173,15 @@ func Test_FindCond(t *testing.T) {
   expect(t, len(ts), 2)
   expect(t, ts[0].Test, "create")
   fmt.Printf("%+v\n",ts[0])
+}
+
+func Test_FindCondRaw(t *testing.T) {
+  var ts []byte
+  err := client.FindCondRaw(r.Row.Field("test").Eq("create"), &ts)
+  expect(t, err, nil)
+  // expect(t, len(ts), 2)
+  // expect(t, ts[0].Test, "create")
+  fmt.Println(string(ts))
 }
 
 func Test_Update(t *testing.T) {
@@ -313,4 +331,87 @@ func Test_CreateCorrectList(t *testing.T) {
   expect(t, c.Inserted, 4)
   expect(t, len(c.Changes), 4)
   expect(t, len(c.GeneratedKeys), 4)
+}
+
+func Test_PopulateRaw(t *testing.T) {
+  newTable := "newtable"
+  ts := []struct{
+    Test string `gorethink:"test"`
+    Abc string `gorethink:"abc"`
+    Id string `gorethink:"id"`
+  }{}
+  err := client.Table(table).FindCond(r.Row.Field("test").Eq("createNewNew"), &ts)
+  expect(t, err, nil)
+  
+  var tsr []byte
+  err = client.Table(table).PopulateRaw(ts[0].Id, newTable, &tsr)
+  expect(t, err, nil)
+  // expect(t, tsr.Newtables[0].Wow, "yowww")
+  fmt.Println(string(tsr))
+}
+
+func Test_PopulateAllRaw(t *testing.T) {
+  newTable := "newtable"
+  ts := []struct{
+    Test string `gorethink:"test"`
+    Abc string `gorethink:"abc"`
+    Id string `gorethink:"id"`
+  }{}
+  err := client.Table(table).FindCond(r.Row.Field("test").Eq("createNewNew"), &ts)
+  expect(t, err, nil)
+  
+  var tsr []byte
+  err = client.Table(table).PopulateAllRaw(
+    r.Row.Field("test").Eq("createNewNew"), 
+    newTable, 
+    &tsr)
+  expect(t, err, nil)
+  // expect(t, tsr.Newtables[0].Wow, "yowww")
+  fmt.Println(string(tsr))
+}
+
+func Test_AddCorrect(t *testing.T) {
+  childTable := "newtable"
+  ts := struct{
+    Test string `gorethink:"test"`
+    Abc string `gorethink:"abc"`
+    }{"create", "thinker"}
+  tso := []struct{
+    Test string `gorethink:"test"`
+    Abc string `gorethink:"abc"`
+    Id string `gorethink:"id"`
+    }{}
+  err := client.FindCond(r.Row.Field("test").Eq("create"), &tso)
+  c, err := client.Table(table).Add(table, tso[0].Id, childTable, ts)
+  fmt.Println(c.Changes)
+  expect(t, err, nil)
+  expect(t, c.Inserted, 1)
+  expect(t, len(c.Changes), 1)
+  expect(t, len(c.GeneratedKeys), 1)
+}
+
+func Test_AddInCorrect(t *testing.T) {
+  childTable := "newtable"
+  ts := struct{
+    Test string `gorethink:"test"`
+    Abc string `gorethink:"abc"`
+    }{"create", "thinker"}
+  
+  c, err := client.Table(table).Add(table, 123, childTable, ts)
+  // fmt.Println(err)
+  refute(t, err, nil)
+  expect(t, c.Inserted, 0)
+  expect(t, len(c.Changes), 0)
+  expect(t, len(c.GeneratedKeys), 0)
+}
+
+func Test_SetDB(t *testing.T) {
+  defer func() {
+        if rc := recover(); rc != nil {
+            fmt.Println("Recovered in Test_SetDB: '", rc, "'")
+            refute(t, rc, nil)
+        }
+    }()
+  client.SetDB("ewq")
+  // fmt.Println(err)
 }
