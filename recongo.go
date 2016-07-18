@@ -1,6 +1,6 @@
 package recongo
 
-// RESTful go binding functions for rethinkdb
+// RESTful CRUD go binding functions for rethinkdb
 // database using gorethink.v2 driver
 
 

@@ -145,6 +145,35 @@ func Test_Get(t *testing.T) {
   expect(t, tsr.Abc, "thinkerGet")
 }
 
+func Test_GetByArray(t *testing.T) {
+  var tsr struct{
+    Id []string `gorethink:"id"`
+    Permissions map[string]int `gorethink:"permissions"`
+  }
+  err := client.SetDB("rethinkdb").Table("permissions").Get(
+    [1]string{"admin"}, &tsr)
+  expect(t, err, nil)
+  fmt.Printf("%v\n",tsr)
+  // expect(t, tsr.Test, "createGet")
+  // expect(t, tsr.Abc, "thinkerGet")
+  client.SetDB("recongo_test").Table("testTable")
+}
+
+func Test_GetNull(t *testing.T) {
+  var tsr struct{
+    Id []string `gorethink:"id"`
+    Permissions map[string]int `gorethink:"permissions"`
+  }
+  err := client.SetDB("rethinkdb").Table("permissions").Get(
+    [1]string{"admin123"}, &tsr)
+  refute(t, err, nil)
+  expect(t, err.Error(), "Incorrect result")
+  fmt.Printf("%v\n",tsr)
+  // expect(t, tsr.Test, "createGet")
+  // expect(t, tsr.Abc, "thinkerGet")
+  client.SetDB("recongo_test").Table("testTable")
+}
+
 func Test_GetAll(t *testing.T) {
   ts := []struct{
     Test string `gorethink:"test"`
@@ -295,7 +324,7 @@ func Test_Delete(t *testing.T) {
 
 func Test_DBTableTree(t *testing.T) {
   ll := client.DBTableTree()
-  // fmt.Println(ll)
+  fmt.Println(ll)
   expect(t, len(ll), 3)
   expect(t, len(ll["test"]), 1)
   expect(t, ll["test"][0], "Foo")
