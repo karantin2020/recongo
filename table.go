@@ -29,7 +29,7 @@ func (c *Client) TablePresent(name string) error {
   if (err != nil) { return err }
 
   if (!stringInSlice(name, tables)) {
-    _, err := r.DB(c.db).TableCreate(name).RunWrite(c.session)
+    _, err := r.DB(c.db).TableCreate(name).RunWrite(c.Session)
     if (err != nil) {
       c.Log(fmt.Sprintf("  + %v ... create failed", name))
       return err
@@ -42,7 +42,7 @@ func (c *Client) TablePresent(name string) error {
 
 // TableList returns a slice of table names on the Client database
 func (c *Client) TableList() ([]string, error) {
-  res, err := r.DB(c.db).TableList().Run(c.session)
+  res, err := r.DB(c.db).TableList().Run(c.Session)
   if (err != nil) { return nil, err }
 
   tableList := []string{}
@@ -54,7 +54,7 @@ func (c *Client) TableList() ([]string, error) {
 // LsTables returns the names of the tables in a database, and panics if the db doesn't exist
 func (c *Client) TableLs(db string) ([]string, error) {
   var tables []string
-  term, err := r.DB(db).TableList().Run(c.session)
+  term, err := r.DB(db).TableList().Run(c.Session)
   if err != nil {
     fmt.Println("TableLs failed on db", db)
     return nil, err
@@ -72,7 +72,7 @@ func (c *Client) PrimKey() (string, error) {
   if c.table == "" {
     return "", errors.New("Table wasn't selected")
   }
-  res, err := r.DB(c.db).Table(c.table).Info().Run(c.session)
+  res, err := r.DB(c.db).Table(c.table).Info().Run(c.Session)
   if (err != nil) { return "", err }
 
   var primKeyStr struct {

@@ -6,6 +6,8 @@ import (
   "fmt"
   r "gopkg.in/dancannon/gorethink.v2"
   re "github.com/karantin2020/recongo"
+  "time"
+  // "encoding/json"
 )
 
 var (
@@ -33,6 +35,8 @@ func init() {
   client, _ = re.NewClient(re.Connection{host, db})
   // client = c
   client.TablePresent(table)
+  newTable := "newtable"
+  client.TablePresent(newTable)
 }
 
 func expect(t *testing.T, a interface{}, b interface{}) {
@@ -47,15 +51,25 @@ func refute(t *testing.T, a interface{}, b interface{}) {
   }
 }
 
+func Test_NewClient_Error(t *testing.T) {
+  _, err := re.NewClient(re.Connection{"cheese:8080", db})
+  refute(t, err, nil)
+}
+
+func Test_NewClient_BadDB(t *testing.T) {
+  _, err := re.NewClient(re.Connection{host, "bad_db"})
+  refute(t, err, nil)
+}
+
+func Test_NewClient_EmptyDB(t *testing.T) {
+  _, err := re.NewClient(re.Connection{host, ""})
+  refute(t, err, nil)
+}
+
 func Test_NewClient(t *testing.T) {
   c, err := re.NewClient(re.Connection{host, db})
   expect(t, err, nil)
   expect(t, c.DB(), "recongo_test")
-}
-
-func Test_NewClient_Error(t *testing.T) {
-  _, err := re.NewClient(re.Connection{"cheese:8080", db})
-  refute(t, err, nil)
 }
 
 func Test_ClientLog(t *testing.T) {
@@ -107,14 +121,11 @@ func Test_CreatePreTable(t *testing.T) {
 }
 
 func Test_Find(t *testing.T) {
-  ts := []struct{
-    Test string `gorethink:"test"`
-    Abc string `gorethink:"abc"`
-    }{}
+  var ts []map[string]interface{}
   err := client.Table(table).Find("test", "create", &ts)
   expect(t, err, nil)
   expect(t, len(ts), 2)
-  expect(t, ts[0].Test, "create")
+  expect(t, ts[0]["test"], "create")
   fmt.Printf("%+v\n",ts[0])
 }
 
@@ -269,9 +280,6 @@ func Test_PrimKey(t *testing.T) {
 
 func Test_PopulatePrepare(t *testing.T) {
   newTable := "newtable"
-  client.TablePresent(newTable)
-  r.DB(db).Table(newTable).IndexCreate(table+"_id").RunWrite(session)
-  r.DB(db).Table(newTable).IndexWait().Run(session)
   ts := []struct{
     Test string `gorethink:"test"`
     Abc string `gorethink:"abc"`
@@ -306,7 +314,7 @@ func Test_Populate(t *testing.T) {
   err = client.Table(table).Populate(ts[0].Id, newTable, &tsr)
   expect(t, err, nil)
   expect(t, tsr.Newtables[0].Wow, "yowww")
-  // fmt.Printf("%+v\n",tsr)
+  fmt.Printf("%+v\n",tsr)
 }
 
 func Test_Delete(t *testing.T) {
@@ -325,9 +333,8 @@ func Test_Delete(t *testing.T) {
 func Test_DBTableTree(t *testing.T) {
   ll := client.DBTableTree()
   fmt.Println(ll)
-  expect(t, len(ll), 3)
-  expect(t, len(ll["test"]), 1)
-  expect(t, ll["test"][0], "Foo")
+  expect(t, len(ll["recongo_test"]), 2)
+  expect(t, ll["recongo_test"][0], "newtable")
 }
 
 func Test_GetRaw(t *testing.T) {
@@ -389,6 +396,8 @@ func Test_PopulateAllRaw(t *testing.T) {
   err := client.Table(table).FindCond(r.Row.Field("test").Eq("createNewNew"), &ts)
   expect(t, err, nil)
   
+  _, err = client.Table(newTable).Create(r.Object(table+"_id", ts[0].Id, "wow", "rowww"))
+  expect(t, err, nil)
   var tsr []byte
   err = client.Table(table).PopulateAllRaw(
     r.Row.Field("test").Eq("createNewNew"), 
@@ -419,7 +428,7 @@ func Test_AddCorrect(t *testing.T) {
   expect(t, len(c.GeneratedKeys), 1)
 }
 
-func Test_AddInCorrect(t *testing.T) {
+func Test_AddWithIncorrectId(t *testing.T) {
   childTable := "newtable"
   ts := struct{
     Test string `gorethink:"test"`
@@ -440,7 +449,100 @@ func Test_SetDB(t *testing.T) {
             fmt.Println("Recovered in Test_SetDB: '", rc, "'")
             refute(t, rc, nil)
         }
+        client.SetDB("recongo_test")
     }()
   client.SetDB("ewq")
   // fmt.Println(err)
 }
+
+func Test_GetWithTimeField(t *testing.T) {
+  ts := struct{
+    Test string `gorethink:"test" json:"test"`
+    Abc string `gorethink:"abc" json:"abc"`
+    Time time.Time `gorethink:"time" json:"time"`
+  }{"createTime", "thinkerTime", time.Now().UTC()}
+  c, err := client.Table(table).Create(ts)
+  // fmt.Println(c.Changes[0])
+  expect(t, err, nil)
+  expect(t, c.Inserted, 1)
+  expect(t, len(c.Changes), 1)
+  expect(t, len(c.GeneratedKeys), 1)
+
+  var tsr struct{
+    Test string `gorethink:"test" json:"test"`
+    Abc string `gorethink:"abc" json:"abc"`
+    Time time.Time `gorethink:"time" json:"time"`
+  }
+  err = client.Get(c.GeneratedKeys[0], &tsr)
+  expect(t, err, nil)
+  expect(t, tsr.Test, "createTime")
+  expect(t, tsr.Abc, "thinkerTime")
+  // fmt.Printf("%+v\n", tsr)
+  // fmt.Println(tsr)
+  // res2B, errm := json.Marshal(tsr)
+  // if errm == nil {
+  //   fmt.Println(string(res2B))
+  //   } else {
+  //     fmt.Println("Bad Marshal result")
+  //   }
+}
+
+func Test_GetOne(t *testing.T) {
+  var tsr struct{
+    Test string `gorethink:"test" json:"test"`
+    Abc string `gorethink:"abc" json:"abc"`
+    Time time.Time `gorethink:"time" json:"time"`
+  }
+  err := client.FindOne(r.Row.Field("abc").Eq("thinkerTime"), 0, &tsr)
+  expect(t, err, nil)
+  fmt.Printf("%+v\n", tsr)
+}
+
+type Foo struct {
+  R int
+}
+
+type Zoo int
+
+func Test_GetOneCustomType(t *testing.T) {
+  ts := struct{F Foo; R Foo}{Foo{321},Foo{432}}
+  fmt.Println(ts)
+  c, err := client.Table(table).Create(ts)
+  fmt.Println(c.Changes[0])
+  expect(t, err, nil)
+  expect(t, c.Inserted, 1)
+  expect(t, len(c.Changes), 1)
+  expect(t, len(c.GeneratedKeys), 1)
+
+  var tsr struct{F Foo}
+  err = client.Get(c.GeneratedKeys[0], &tsr)
+  expect(t, err, nil)
+
+  fmt.Printf("%+v\n", tsr)
+
+  tsz := struct {
+    Z Zoo
+  }{987}
+  fmt.Println(tsz)
+  c, err = client.Table(table).Create(tsz)
+  fmt.Println(c.Changes[0])
+  expect(t, err, nil)
+  expect(t, c.Inserted, 1)
+  expect(t, len(c.Changes), 1)
+  expect(t, len(c.GeneratedKeys), 1)
+
+  var tsrz struct{Z Zoo}
+  err = client.Get(c.GeneratedKeys[0], &tsrz)
+  expect(t, err, nil)
+
+  fmt.Printf("%+v\n", tsrz)
+}
+
+func Test_GetOneField(t *testing.T) {
+  var tsr time.Time
+  err := client.FindOneField(r.Row.Field("abc").Eq("thinkerTime"), 0, "time", &tsr)
+  expect(t, err, nil)
+  fmt.Println(tsr)
+}
+
+

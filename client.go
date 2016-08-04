@@ -14,8 +14,7 @@ type Connection struct {
 
 // Client manages a rethinkdb connection (scoped to a particular database)
 type Client struct {
-  session *r.Session
-  term r.Term
+  Session *r.Session
   db string
   table string
   LogOutput bool
@@ -38,8 +37,7 @@ func NewClient(conn Connection) (*Client, error) {
     return nil, errors.New(conn.DB+" is wrong db name. Please type correct db name")
   }
   return &Client{
-    session: session,
-    term: r.DB(conn.DB),
+    Session: session,
     db: conn.DB,
     LogOutput: false,
     indexListCache: map[string][]string{},
@@ -64,6 +62,10 @@ func (c *Client) Table(name string) *Client {
   return c
 }
 
+func (c *Client) GetDB() string {
+  return c.db
+}
+
 // Set current db to use
 func (c *Client) SetDB(name string) *Client {
   if c.DBTest(name) != nil {
@@ -74,9 +76,13 @@ func (c *Client) SetDB(name string) *Client {
   return c
 }
 
+func (c *Client) GetTable() string {
+  return c.table
+}
+
 // Close db session
 func (c *Client) Close(optArgs ...r.CloseOpts) error {
-  return c.session.Close()
+  return c.Session.Close()
 }
 
 // TableTree returns a map with all the databases and tabels
